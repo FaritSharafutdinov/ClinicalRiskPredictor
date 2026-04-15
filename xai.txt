@@ -1,0 +1,148 @@
+               Baseline Stage Report: ChronoFormer
+                        Mortality Risk from Clinical Event Sequences
+
+               Farit Sharafutdinov           Grigorii Belyaev           Egor Sergeev
+
+                                          March 25, 2026
+
+
+                                              Abstract
+          This report covers the baseline phase of our explainable healthcare risk prediction
+      project. We implement ChronoFormer with time-aware attention, trained on sequences
+      of condition codes and inter-event time gaps using the Synthea dataset (parquet). Planned
+      next steps—attention rollout and saliency visualization—follow the project proposal (Febru-
+      ary 12, 2026).
+
+
+1    Name of Our Product
+ChronoFormer is the product name for our binary mortality risk predictor: it maps a chrono-
+logical sequence of clinical condition codes and inter-event time gaps (in days between
+consecutive events) to a probability of the adverse outcome.
+
+
+2    Domain of Application
+    • Field: healthcare analytics and clinical risk stratification, including mortality pre-
+      diction in this baseline; the same modeling paradigm extends to related tasks such as
+      readmission risk when applied to other cohorts (as outlined in our proposal).
+    • Baseline data: synthetic yet realistic Synthea records (Hugging Face dataset richardyoung/synthea-57
+      parquet tables patients and conditions). Our proposal targets MIMIC-IV or eICU stan-
+      dardized to the MEDS (Medical Event Data Standard) format—that remains the intended
+      direction for later milestones; the baseline is deliberately fixed on a reproducible synthetic
+      pipeline.
+    • Transparency: high-stakes medical use requires model transparency; we plan to address
+      this via attention-based explanations (rollout and saliency maps).
+
+
+3    Motivation to Complete the Project
+    • Clinical and societal value: identifying high-risk patients early supports follow-up plan-
+      ning and resource allocation.
+    • Research goal: combine temporal modeling in a transformer for EHR-style event
+      sequences with explainable AI (XAI)—understanding how the model weights past visits
+      relative to time intervals is essential for clinical trust.
+    • Engineering goal: deliver reproducible PyTorch code, a public GitHub repository, and a
+      documented predictive baseline before layering interpretability methods.
+
+
+4    The Real-World Problem Our Product Solves
+In practice, the task is to estimate the probability of an adverse outcome from the patient’s
+recorded condition history and the timing between events. In this baseline, the label is derived
+
+                                                  1
+from the presence of a death date in the patient record. Such models support clinical decision
+support, cohort studies, and quality analytics. The current limitation is training on synthetic
+data; deployment to real EHRs requires external validation and careful bias analysis.
+
+
+5     The Technical Problem Being Solved (The Black Box)
+    • Input: a discrete sequence of event codes and inter-event intervals (days).
+    • Model: a neural network with event and time embeddings and time-aware attention: a
+      learnable bias depending on binned relative time is added to attention logits (aligned with
+      the proposal idea of coupling time with scaled dot-product attention).
+    • Why it is a “black box”: a transformer does not, by itself, yield an interpretable clinical
+      narrative of which visits and gaps drove the prediction. The next project stage therefore
+      targets Attention Rollout and saliency-based visualizations.
+
+
+6     The Baseline Implementation
+6.1    Data and labels
+From patients: if DEATHDATE is present, label = 1; otherwise 0. From conditions: events
+sorted by time; time_delta is the number of days between consecutive events for each patient
+(zero for the first event). Split 80 / 10 / 10 (train / validation / test) with random_state=42
+(approximately 460k / 57.5k / 57.5k patients in our run).
+
+6.2    Preprocessing
+A vocabulary maps raw codes to indices; PAD = 0, UNK = 1. Sequences are padded or truncated
+to max_len = 256 (if longer, the last 256 events are kept). A boolean mask marks valid positions
+for attention.
+
+6.3    ChronoFormer architecture
+                                                                                     √
+    • TimeAwareAttention: Q, K, V from embeddings; attention scores = QK ⊤ / dk +
+      time_bias (bias from embedding time bins), then softmax and context aggregation.
+    • ChronoFormer: sum of event embedding and binned time embedding → one time-aware
+      attention layer → LayerNorm → representation of the last sequence position → MLP with
+      ReLU and a sigmoid output.
+
+6.4    Training
+Optimizer: AdamW. Loss: binary cross-entropy. Validation metrics: AUROC and F1 at thresh-
+old 0.5. Best weights by validation AUROC are saved as chronoformer_best.pt; early stopping
+with patience 5; up to 50 epochs. Config: batch_size = 128, d_model = 128, n_heads = 4,
+lr = 5 × 10−5 . On CUDA: cudnn.benchmark and pin_memory; num_workers = 0 for stable Win-
+dows/Jupyter behavior with large in-memory datasets.
+
+6.5    Results (from training logs)
+Validation AUROC increased from roughly 0.93 at epoch 0 to about 0.954+ by epochs 10–
+11 (full log truncated). Insert the final test AUROC and F1 from the complete output of
+run_experiment() in baseline.ipynb.
+
+
+
+
+                                                2
+7     Contribution of Each Groupmate
+
+    Team member                  Contribution
+    Farit Sharafutdinov          data loading, architecture, training loop.
+    Grigorii Belyaev             splits, experiments, tooling.
+    Egor Sergeev                 reporting
+
+
+
+8     Lessons Learned
+     • Modeling temporal structure (not only code order but inter-event gaps) matches the
+       nature of clinical trajectories.
+     • End-to-end runs on hundreds of thousands of patients require attention to memory and
+       preprocessing time; fixing random_state and saving checkpoints simplifies comparison with
+       future XAI experiments.
+     • It is important to separate classification performance from explanation quality in
+       later stages (fidelity metrics and related checks, as in our proposal deliverables).
+
+
+9     Further Goals
+9.1     Technical goals
+     • Implement Attention Rollout and saliency mapping; produce 3–5 heatmap examples
+       showing visit/event importance.
+     • Run fidelity metrics and comparison with clinical expectations (aligned with the April 2026
+       project milestone in our timeline).
+     • Maintain a public GitHub repository with reproducible scripts and documentation.
+
+9.2     Personal goals
+     • Deepen understanding of limitations of attention-based explanations in medical transform-
+       ers.
+     • Strengthen teamwork habits: clear ownership of data, modeling, and reporting, and repro-
+       ducible experiment logs.
+     • Prepare the final presentation (April 21, 2026): baseline results plus a demonstration of
+       explanation methods.
+
+
+Link to the Project Proposal (February 12, 2026)
+The proposal remains aligned with this baseline: ChronoFormer, time-aware attention im-
+plemented from scratch, clinical event modeling, then visual explanations. Timeline: baseline
+and preprocessing by March 12; XAI visualization module and fidelity testing by April 15; final
+presentation on April 21.
+
+
+
+
+                                                 3
+

@@ -1,0 +1,85 @@
+1     Project Overview
+Name: Farit Sharafutdinov, Grigorii Belyaev, Egor Sergeev
+Date: February 12, 2026
+
+    We propose implementing Attention Visualization (Rollout/Saliency) to ex-
+plain predictions of the ChronoFormer model in the domain of Healthcare Risk
+Prediction.
+    The project will include:
+
+    • Original implementation of the Time-Aware Attention mechanism from scratch.
+
+    • Application to a clinical event modeling task using EHR data.
+
+    • Visual explanations via attention heatmaps and documentation.
+
+    • Public GitHub repository with reproducible code.
+
+
+2     Components
+2.1    Application Domain
+    • Domain: Healthcare diagnostics and clinical risk stratification (e.g., mortality or
+      readmission prediction).
+
+    • Importance: High-stakes medical decisions requiring model transparency to align
+      with clinical intuition.
+
+    • Dataset: MIMIC-IV or eICU datasets, standardized to the MEDS (Medical Event
+      Data Standard).
+
+2.2    Machine Learning Model
+    • Model Type: Time-Aware Transformer for structured clinical event modeling.
+
+    • Architecture: ChronoFormer, utilizing dual time embeddings (absolute and rela-
+      tive) and hierarchical attention.
+
+    • Need for XAI: Transformers are complex ”black boxes”; understanding how the
+      model weighs past visits relative to time intervals is crucial for clinical trust.
+
+2.3    Proposed XAI Method
+    • Method: Attention Rollout and Saliency Mapping.
+
+    • Implementation Plan:
+
+        1. Code the Time-Aware Attention mechanism (incorporating time decay) from
+           scratch.
+        2. Integrate with the ChronoFormer architecture.
+        3. Extract and aggregate attention weights to generate heatmap visualizations.
+
+                                            1
+    • Key Equation (Time-Aware Attention):
+
+                                                          QK T
+                                                                  
+                      Attention(Q, K, V ) = Softmax       √ + Wtime V
+                                                           dk
+      Where Wtime represents the learnable embeddings for relative time intervals between
+      medical events.
+
+
+3     Deliverables
+    • Documented Python code (PyTorch) on GitHub/Colab.
+
+    • Technical report/blog post explaining the role of temporal factors in model atten-
+      tion.
+
+    • 3–5 explanation examples (heatmaps) showing visit importance.
+
+    • Validation using Fidelity metrics and clinical guidance comparison.
+
+
+4     Timeline
+    • Feb 12: Proposal submission.
+
+    • March 12: Implementation of the base ChronoFormer layers and data preprocess-
+      ing.
+
+    • April 15: Completion of the XAI visualization module and Fidelity testing.
+
+    • April 21: Final presentation.
+
+
+
+
+                                            2
+
