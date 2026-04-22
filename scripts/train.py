@@ -42,6 +42,9 @@ def main() -> None:
         lr=args.lr,
         patience=args.patience,
         device=device,
+        bin_size=min(32, args.max_len) if args.dry_run else min(32, args.max_len),
+        intra_layers=1,
+        inter_layers=1,
     )
 
     if args.dry_run:

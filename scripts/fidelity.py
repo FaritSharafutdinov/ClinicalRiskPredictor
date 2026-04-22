@@ -21,8 +21,7 @@ from clinical_risk_predictor.data import (
 )
 from clinical_risk_predictor.train import load_model_for_inference
 from clinical_risk_predictor.xai.attention_rollout import (
-    attention_rollout_single_layer,
-    last_token_importance_from_rollout,
+    AttentionRollout,
 )
 from clinical_risk_predictor.xai.fidelity import fidelity_drop_prob
 from clinical_risk_predictor.xai.saliency import token_saliency_via_input_grads
@@ -74,8 +73,8 @@ def main() -> None:
     # attention rollout importance
     with torch.no_grad():
         _, artifacts = model(x, t, m, return_attn=True)
-    rollout = attention_rollout_single_layer(artifacts.attn, m, add_residual=True)
-    imp_roll = last_token_importance_from_rollout(rollout)
+    rollout = AttentionRollout(add_residual=True, head_reduction="mean").rollout(artifacts.attn_by_layer, m)
+    imp_roll = rollout[:, -1, :]
     res_roll = fidelity_drop_prob(model, x, t, m, imp_roll, k=args.k, pad_idx=0)
 
     # saliency importance

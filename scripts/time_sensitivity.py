@@ -21,22 +21,18 @@ from clinical_risk_predictor.data import (
     make_tiny_sequences,
 )
 from clinical_risk_predictor.train import load_model_for_inference
-from clinical_risk_predictor.xai.attention_rollout import (
-    AttentionRollout,
-)
-from clinical_risk_predictor.xai.plots import save_token_importance_heatmap
-from clinical_risk_predictor.xai.saliency import token_saliency_via_input_grads
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--checkpoint", type=str, default="artifacts/chronoformer_best.pt")
-    p.add_argument("--out-dir", type=str, default="artifacts/xai")
     p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--sample-index", type=int, default=0, help="Index within the first batch.")
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--max-len", type=int, default=256)
     p.add_argument("--device", type=str, default=None)
+    p.add_argument("--mode", type=str, default="scale", choices=["scale", "noise", "shuffle"])
+    p.add_argument("--scale", type=float, default=2.0, help="Used for mode=scale")
+    p.add_argument("--noise-std", type=float, default=5.0, help="Std (days) for mode=noise")
     args = p.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,13 +43,6 @@ def main() -> None:
             n_patients=256, max_events=min(64, cfg.max_len), vocab_size=500, seed=cfg.seed
         )
         vocab_size = 500
-    else:
-        labels_df, events_df = load_synthea_parquet()
-        splits = make_splits(labels_df, seed=cfg.seed)
-        vocab = create_vocab(events_df)
-        vocab_size = len(vocab)
-
-    if args.dry_run:
         id_to_i = {pid: i for i, pid in enumerate([f"p{i:05d}" for i in range(len(labels))])}
         test_idx = [id_to_i[i] for i in splits.test_ids]
         ds = TinySequenceDataset(
@@ -63,7 +52,12 @@ def main() -> None:
             max_len=cfg.max_len,
         )
     else:
+        labels_df, events_df = load_synthea_parquet()
+        splits = make_splits(labels_df, seed=cfg.seed)
+        vocab = create_vocab(events_df)
+        vocab_size = len(vocab)
         ds = MEDSDataset(events_df, labels_df, vocab, splits.test_ids, max_len=cfg.max_len, desc="test")
+
     loader = DataLoader(ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0, pin_memory=(device == "cuda"))
     batch = next(iter(loader))
     x = batch["x"].to(device)
@@ -73,32 +67,34 @@ def main() -> None:
     model = load_model_for_inference(args.checkpoint, vocab_size=vocab_size, config=cfg)
 
     with torch.no_grad():
-        p_hat, artifacts = model(x, t, m, return_attn=True)
-    rollout = AttentionRollout(add_residual=True, head_reduction="mean").rollout(artifacts.attn_by_layer, m)
-    imp_roll = rollout[:, -1, :]  # [B,S]
+        p0 = model(x, t, m).squeeze(-1)
 
-    imp_sal = token_saliency_via_input_grads(model, x, t, m)  # [B,S]
+    if args.mode == "scale":
+        t2 = torch.clamp(t * float(args.scale), min=0.0)
+    elif args.mode == "noise":
+        noise = torch.randn_like(t) * float(args.noise_std)
+        t2 = torch.clamp(t + noise, min=0.0)
+    else:  # shuffle within each sequence
+        t2 = t.clone()
+        for i in range(t2.shape[0]):
+            valid = m[i].nonzero(as_tuple=False).squeeze(-1)
+            if valid.numel() > 1:
+                perm = valid[torch.randperm(valid.numel(), device=valid.device)]
+                t2[i, valid] = t2[i, perm]
 
-    idx = int(np.clip(args.sample_index, 0, x.shape[0] - 1))
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        p1 = model(x, t2, m).squeeze(-1)
 
-    save_token_importance_heatmap(
-        imp_roll[idx].detach().cpu().numpy(),
-        title=f"Attention rollout importance (p={float(p_hat[idx].item()):.3f})",
-        out_path=out_dir / f"rollout_sample{idx}.png",
-        y_label="",
-        figsize=(14, 2),
-    )
-    save_token_importance_heatmap(
-        imp_sal[idx].detach().cpu().numpy(),
-        title=f"Saliency (input grads) (p={float(p_hat[idx].item()):.3f})",
-        out_path=out_dir / f"saliency_sample{idx}.png",
-        y_label="",
-        figsize=(14, 2),
-    )
-
-    print(f"Saved to: {out_dir.resolve()}")
+    delta = (p1 - p0).detach().cpu().numpy()
+    print("Time-aware sensitivity analysis")
+    print(f"- mode={args.mode}")
+    if args.mode == "scale":
+        print(f"- scale={args.scale}")
+    if args.mode == "noise":
+        print(f"- noise_std={args.noise_std} days")
+    print(f"- mean_delta={delta.mean():.6f}")
+    print(f"- mean_abs_delta={np.abs(delta).mean():.6f}")
+    print(f"- p0_mean={float(p0.mean().item()):.6f} p1_mean={float(p1.mean().item()):.6f}")
 
 
 if __name__ == "__main__":

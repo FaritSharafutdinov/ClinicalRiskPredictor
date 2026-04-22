@@ -51,3 +51,14 @@ Measures how much the predicted probability drops after masking the top-k import
 python scripts/fidelity.py --dry-run --checkpoint artifacts/chronoformer_best.pt --k 10
 ```
 
+### Advanced XAI (next-step)
+
+- **Integrated Gradients (IG)** (with event vs time attribution split): use `scripts/visualize_xai.py`
+- **Multi-layer Attention Rollout**: supported via `AttentionRollout` (works for 1+ layers)
+- **Time-aware sensitivity analysis**: perturb \(\Delta t\) and measure prediction change
+
+```bash
+python scripts/visualize_xai.py --dry-run --checkpoint artifacts/chronoformer_best.pt --out artifacts/xai/compare_xai.png
+python scripts/time_sensitivity.py --dry-run --checkpoint artifacts/chronoformer_best.pt --mode scale --scale 2.0
+```
+
