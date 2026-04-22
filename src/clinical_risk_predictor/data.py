@@ -24,16 +24,35 @@ class Splits:
     test_ids: list[str]
 
 
-def load_synthea_parquet(
-    base_url: str = "hf://datasets/richardyoung/synthea-575k-patients/data",
-) -> tuple["pl_t.DataFrame", "pl_t.DataFrame"]:
-    """
-    Returns:
-      labels_df: columns [patient_id, label]
-      events_df: columns [patient_id, timestamp, event_code, time_delta]
-    """
-    if pl is None:
-        raise ImportError("polars is required for load_synthea_parquet(). Install: pip install polars")
+def _candidate_base_urls(base_url: str) -> list[str]:
+    base_url = base_url.rstrip("/")
+    candidates = [base_url]
+    prefix = "hf://datasets/"
+    if base_url.startswith(prefix):
+        # Convert:
+        # hf://datasets/<owner>/<dataset>/path
+        # -> https://huggingface.co/datasets/<owner>/<dataset>/resolve/main/path
+        tail = base_url[len(prefix) :]
+        parts = tail.split("/")
+        if len(parts) >= 2:
+            repo = "/".join(parts[:2])
+            rest = "/".join(parts[2:])
+            converted = f"https://huggingface.co/datasets/{repo}/resolve/main"
+            if rest:
+                converted = f"{converted}/{rest}"
+            candidates.append(converted)
+
+    # dedupe preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def _load_synthea_from_base(base_url: str) -> tuple["pl_t.DataFrame", "pl_t.DataFrame"]:
     patients_lf = pl.scan_parquet(f"{base_url}/patients.parquet").select(
         [
             pl.col("Id").alias("patient_id"),
@@ -68,6 +87,27 @@ def load_synthea_parquet(
         .collect()
     )
     return labels_df, events_df
+
+
+def load_synthea_parquet(
+    base_url: str = "https://huggingface.co/datasets/richardyoung/synthea-575k-patients/resolve/main/data",
+) -> tuple["pl_t.DataFrame", "pl_t.DataFrame"]:
+    """
+    Returns:
+      labels_df: columns [patient_id, label]
+      events_df: columns [patient_id, timestamp, event_code, time_delta]
+    """
+    if pl is None:
+        raise ImportError("polars is required for load_synthea_parquet(). Install: pip install polars")
+    errors: list[str] = []
+    for candidate in _candidate_base_urls(base_url):
+        try:
+            return _load_synthea_from_base(candidate)
+        except Exception as exc:
+            errors.append(f"{candidate}: {exc!r}")
+    raise RuntimeError(
+        "Failed to load Synthea parquet from all candidate URLs:\n" + "\n".join(errors)
+    )
 
 
 def make_splits(

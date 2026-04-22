@@ -1,0 +1,49 @@
+{
+  "dry_run": true,
+  "out_dir": "C:\\Users\\egors\\ClinicalRiskPredictor\\presentation\\figures",
+  "dataset": {
+    "n_patients": 512,
+    "positive_rate": 0.48828125,
+    "median_sequence_length": 34.0,
+    "mean_time_delta": 14.42919974867196
+  },
+  "plots": [
+    "C:\\Users\\egors\\ClinicalRiskPredictor\\presentation\\figures\\class_balance.png",
+    "C:\\Users\\egors\\ClinicalRiskPredictor\\presentation\\figures\\sequence_length_distribution.png",
+    "C:\\Users\\egors\\ClinicalRiskPredictor\\presentation\\figures\\time_delta_distribution.png",
+    "C:\\Users\\egors\\ClinicalRiskPredictor\\presentation\\figures\\importance_overlay_sample0.png",
+    "C:\\Users\\egors\\ClinicalRiskPredictor\\presentation\\figures\\fidelity_curve.png"
+  ],
+  "fidelity": [
+    {
+      "k": 1,
+      "rollout_delta": -0.0028913915157318115,
+      "saliency_delta": -0.0012654364109039307
+    },
+    {
+      "k": 3,
+      "rollout_delta": -0.0044755637645721436,
+      "saliency_delta": -0.0032733678817749023
+    },
+    {
+      "k": 5,
+      "rollout_delta": -0.006170898675918579,
+      "saliency_delta": -0.0025618374347686768
+    },
+    {
+      "k": 10,
+      "rollout_delta": -0.005835294723510742,
+      "saliency_delta": -0.00891008973121643
+    },
+    {
+      "k": 20,
+      "rollout_delta": -0.00612834095954895,
+      "saliency_delta": -0.007858246564865112
+    },
+    {
+      "k": 40,
+      "rollout_delta": -0.009944379329681396,
+      "saliency_delta": -0.009595632553100586
+    }
+  ]
+}
