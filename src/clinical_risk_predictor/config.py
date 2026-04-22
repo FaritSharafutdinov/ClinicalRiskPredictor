@@ -12,6 +12,11 @@ class TrainConfig:
     batch_size: int = 128
     d_model: int = 128
     n_heads: int = 4
+    n_layers: int = 1
+    bin_size: int = 256
+    intra_layers: int = 1
+    inter_layers: int = 1
+    bin_pool: str = "mean"  # "mean" or "cls"
     epochs: int = 50
     lr: float = 5e-5
     patience: int = 5

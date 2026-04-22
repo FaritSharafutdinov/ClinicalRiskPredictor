@@ -73,6 +73,10 @@ def train_model(
         d_model=config.d_model,
         n_heads=config.n_heads,
         max_time_bins=config.max_time_bins,
+        bin_size=getattr(config, "bin_size", config.max_len),
+        intra_layers=getattr(config, "intra_layers", 1),
+        inter_layers=getattr(config, "inter_layers", 1),
+        bin_pool=getattr(config, "bin_pool", "mean"),
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
@@ -143,6 +147,10 @@ def load_model_for_inference(
         d_model=config.d_model,
         n_heads=config.n_heads,
         max_time_bins=config.max_time_bins,
+        bin_size=getattr(config, "bin_size", config.max_len),
+        intra_layers=getattr(config, "intra_layers", 1),
+        inter_layers=getattr(config, "inter_layers", 1),
+        bin_pool=getattr(config, "bin_pool", "mean"),
     ).to(device)
     state = torch.load(Path(checkpoint_path), map_location=device)
     model.load_state_dict(state)

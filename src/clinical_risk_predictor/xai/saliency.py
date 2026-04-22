@@ -29,9 +29,7 @@ def token_saliency_via_input_grads(
     h = model.encode(x, time_deltas, mask)
     h = h.detach().requires_grad_(True)
 
-    out = model.attention(h, time_deltas, mask, return_attn=False)
-    out = model.norm(out)
-    p = model.classifier(out[:, -1, :]).squeeze(-1)  # [B]
+    p = model.forward_from_embeddings(h, time_deltas, mask).squeeze(-1)  # [B]
 
     grads = torch.autograd.grad(outputs=p.sum(), inputs=h, create_graph=False, retain_graph=False)[0]
     s = grads.abs().sum(dim=-1)  # [B,S]
